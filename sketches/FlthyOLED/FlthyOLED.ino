@@ -76,6 +76,7 @@
 ///          Y - Front & Top HPs                                                                     ///
 ///          Z - Rear & Top HPs                                                                      ///
 ///          S - Sequences (See Below)                                                               ///
+///          S - Sequences (See Below)                                                               ///
 ///                                                                                                  ///
 ///     T - the Sequence Type is either 0-Led Fuctions and 1-Servo Functions                         ///
 ///                                                                                                  ///
@@ -187,7 +188,7 @@
 ///*****                    normal droid operation.                       *****///
 ///*****                                                                  *****///
 //////////////////////////////////////////////////////////////////////////////////
-//#define DEBUG true
+#define DEBUG true
 
 //////////////////////////////////////////////////////////////////////////////////
 ///*****                 Assign Arduino IC2 Address Below                 *****///
@@ -739,7 +740,9 @@ static void oledInit()
     #endif
       return;
     }
-    bd2PlayMovie("R2.bd2");
+  #ifdef DEBUG
+    debugStartupMovie();
+  #endif
 }
 
 #ifdef DEBUG
@@ -883,7 +886,7 @@ const uint32_t basicColors[10][10] = {{     C_RED,  C_YELLOW,   C_GREEN,   C_CYA
 const byte neoJewelLEDS[HPCOUNT] = { 12, 7, 7 };
 #define NEO_JEWEL_LEDS(i) neoJewelLEDS[i]
 #else
-#define NEO_JEWEL_LEDS(i)
+#define NEO_JEWEL_LEDS(i) 7
 #endif
 
 #ifdef NEO_JEWEL_RGBW
@@ -918,12 +921,11 @@ void setup() {
   Wire.begin(I2CADDRESS);                  // Connects to I2C Bus and establishes address.
   Wire.onReceive(i2cEvent);                // Register event so when we receive something we jump to i2cEvent();
 
+  randomSeed(analogRead(3));               // Seeds psuedo-random number generator with current value on unconnected anolog pin to make random more randomy.
+
 #ifdef OLED
   oledInit();
 #endif
-
-  randomSeed(analogRead(3));               // Seeds psuedo-random number generator with current value on unconnected anolog pin to make random more randomy.
-
   Serial.print(F("\nFlthyHPs, Sketch Version 1.")); 
   Serial.println(VERSION);
   #ifdef DEBUG
@@ -1005,6 +1007,23 @@ void dimFrontHoloBrigthness()
 {
   // Restore front holo brightness
   neoStrips[0].setBrightness(BRIGHT/2);
+}
+
+void debugStartupMovie()
+{
+  stringComplete = true;
+  switch (random(3))
+  {
+    case 0:
+      inputString = "S1|34";
+      break;
+    case 1:
+      inputString = "S2";
+      break;
+    case 2:
+      inputString = "S3";
+      break;
+  }
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1096,6 +1115,10 @@ void loop(){
                                       HPHaltTime[i] = millis();                         // and note start time
                                    }
                               }                     
+                       break;
+               case 2: bd2PlayMovie("R2.bd2");
+                       break;
+               case 3: bd2PlayMovie("Plans.bd2");
                        break;
                case 7: for (int i=0; i<HPCOUNT; i++) {
                                 enableTwitchHP[i]=false;                                 // Disables Auto HP Twith on all HPs 
@@ -1423,13 +1446,13 @@ void wagHP(byte hp, byte type){
 //////////////////////////////////////////////////////////////////////////////////////////
 
 void ledOFF(byte hp) {
-  for(int i=0; i<NEO_JEWEL_LEDS(i); i++) {neoStrips[hp].setPixelColor(i,C_OFF);} 
+  for(int i=0; i<NEO_JEWEL_LEDS(hp); i++) {neoStrips[hp].setPixelColor(i,C_OFF);} 
   neoStrips[hp].show();
 }
 
       
 void ledColor(byte hp, int c) {
-  for(int i=0; i<NEO_JEWEL_LEDS(i); i++) {neoStrips[hp].setPixelColor(i,basicColors[c][0]);} 
+  for(int i=0; i<NEO_JEWEL_LEDS(hp); i++) {neoStrips[hp].setPixelColor(i,basicColors[c][0]);} 
   neoStrips[hp].show();
 }
 
@@ -1443,7 +1466,7 @@ void resetLEDtwitch(int hp) {
 //////////////////////////////////////////////////////////
 void colorProjectorLED(byte hp, int c) {
   if ((millis() - tCounter[hp]) > interval[hp]) {
-    for(int i=0; i<NEO_JEWEL_LEDS(i); i++) { neoStrips[hp].setPixelColor(i,basicColors[c][random(0,10)]); }
+    for(int i=0; i<NEO_JEWEL_LEDS(hp); i++) { neoStrips[hp].setPixelColor(i,basicColors[c][random(0,10)]); }
     neoStrips[hp].show();
     tCounter[hp]=millis();
     interval[hp]=random(50,150);
@@ -1464,7 +1487,7 @@ void dimPulse(byte hp, int c, int setting) {
     if(frames >= 64) {tCounter[hp] = millis();}     
     if (frames > 32) {frames = 32-(frames - 32);}
     if(elapsed>=inter) {
-      for(int i=0; i<NEO_JEWEL_LEDS(i); i++)
+      for(int i=0; i<NEO_JEWEL_LEDS(hp); i++)
         neoStrips[hp].setPixelColor(i, dimColorVal(c,(frames*8)));
       neoStrips[hp].show();
     }
@@ -1475,13 +1498,13 @@ void ShortCircuit(byte hp, int c) {
   if(SCloop[hp] <= SCMAXLOOPS) {
     if ((millis() - tCounter[hp]) > SCinterval[hp]) {
       if(SCflag[hp] == false) {
-        for(int i=0; i<NEO_JEWEL_LEDS(i); i++)
+        for(int i=0; i<NEO_JEWEL_LEDS(hp); i++)
           neoStrips[hp].setPixelColor(i,C_OFF);
         SCflag[hp] = true;
         SCinterval[hp] = 10+(SCloop[hp]*random(15,25));
       } 
       else {
-        for(int i=0; i<NEO_JEWEL_LEDS(i); i++)
+        for(int i=0; i<NEO_JEWEL_LEDS(hp); i++)
           neoStrips[hp].setPixelColor(i,basicColors[c][random(0,10)]);
         neoStrips[hp].show();
         SCflag[hp] = false;
@@ -1543,8 +1566,8 @@ void rainbow(byte hp) {
     tCounter[hp]=millis();
   }
   else {        
-    for(int i=0; i<NEO_JEWEL_LEDS(i); i++) {
-      neoStrips[hp].setPixelColor(i, Wheel(((i * 256 / NEO_JEWEL_LEDS(i)) + frames) & 255));
+    for(int i=0; i<NEO_JEWEL_LEDS(hp); i++) {
+      neoStrips[hp].setPixelColor(i, Wheel(((i * 256 / NEO_JEWEL_LEDS(hp)) + frames) & 255));
     }
     if(elapsed>=inter) {neoStrips[hp].show();}
   }              
