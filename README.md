@@ -10,11 +10,11 @@ I've included 3 movie files:
 
 Leia
 ==============
-[Original File](https://www.youtube.com/watch?v=tcl1ibg9HgU)
+[Original File](https://youtu.be/tcl1ibg9HgU)
 
 Plans
 ==============
-[Original File](https://www.youtube.com/watch?v=tcl1ibg9HgU)
+[Original File](https://youtu.be/tcl1ibg9HgU?t=46)
 
 R2
 ==============
