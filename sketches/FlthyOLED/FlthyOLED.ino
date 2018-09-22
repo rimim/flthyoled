@@ -293,7 +293,7 @@ const unsigned int RCRange[2] = {1250, 1750};     // {Min, Max}
 ///*****        uncomment the following if you have the RGBW version.     *****///
 ///*****                                                                  *****///
 //////////////////////////////////////////////////////////////////////////////////
-//#define NEO_JEWEL_RGBW
+#define NEO_JEWEL_RGBW
 
 //////////////////////////////////////////////////////////////////////////////////
 ///*****                          LED Brightness                          *****///
@@ -597,6 +597,9 @@ Adafruit_SSD1331 display = Adafruit_SSD1331(cs, dc, rst);
 File bd2File;
 uint32_t bd2FrameCount;
 uint32_t bd2Timestamp;
+uint32_t bd2Timestart;
+uint32_t bd2FrameCountInitial;
+uint32_t bd2FramesPerSec;
 
 static void oledDisplayClear()
 {
@@ -610,7 +613,9 @@ static void bd2CloseMovie()
     bd2File.close();
   }
   bd2FrameCount = 0;
+  bd2FrameCountInitial = 0;
   bd2Timestamp = 0;
+  bd2Timestart = 0;
   oledDisplayClear();
   restoreFrontHoloBrigthness();
 }
@@ -624,7 +629,6 @@ void bd2DrawFrame(File fd)
     /* Keyframe */
     for (int y = 0; y < 64; y++)
     {
-      display.goTo(0, y);
       int num = fd.read(sdbuffer, sizeof(sdbuffer));
       if (num != sizeof(sdbuffer))
       {
@@ -636,10 +640,9 @@ void bd2DrawFrame(File fd)
         bd2CloseMovie();
         break;
       }
-      for (int x = 0; x < 96; x++)
-      {
-        display.pushColor(sdbuffer[x]);
-      }
+      display.setAddrWindow(0, y, 96, 1);
+      display.writePixels(sdbuffer, 96);
+      display.endWrite();
     }
   }
   else if (frameType == 1)
@@ -651,7 +654,6 @@ void bd2DrawFrame(File fd)
     int h = fd.read();
     while (h-- > 0)
     {
-      display.goTo(x, y++);
       int num2 = fd.read(sdbuffer, w*sizeof(uint16_t));
       if (num2 != w*sizeof(uint16_t))
       {
@@ -663,13 +665,12 @@ void bd2DrawFrame(File fd)
         bd2CloseMovie();
         break;
       }
-      for (int xx = 0; xx < w; xx++)
-      {
-        display.pushColor(sdbuffer[xx]);
-      }
+      display.setAddrWindow(x,y,w,1);
+      display.writePixels(sdbuffer, w);
+      display.endWrite();
+      y++;
     }
   }
-  delay(10);
 }
 
 uint32_t read32(File f) {
@@ -684,6 +685,8 @@ uint32_t read32(File f) {
 static void bd2PlayMovie(const char* filename)
 {
   bd2CloseMovie();
+  Serial.print(F("bd2PlayMovie: "));
+  Serial.println(filename);
   if ((bd2File = SD.open(filename)) == NULL) {
   #ifdef DEBUG
     Serial.print(F("File not found: "));
@@ -699,7 +702,10 @@ static void bd2PlayMovie(const char* filename)
   // Set front holo to half-bright during movie play
   dimFrontHoloBrigthness();
   bd2FrameCount = read32(bd2File);
+  bd2FrameCountInitial = bd2FrameCount;
+  bd2FramesPerSec = read32(bd2File);
   bd2Timestamp = 0;
+  bd2Timestart = millis();
 }
 
 static void bd2Idle()
@@ -710,11 +716,16 @@ static void bd2Idle()
   }
   if (millis() - bd2Timestamp >= 100)
   {
+    bd2Timestamp = millis();
     bd2DrawFrame(bd2File);
     bd2FrameCount--;
-    bd2Timestamp = millis();
     if (!bd2FrameCount)
     {
+      Serial.print("Time elapsed: ");
+      Serial.print(bd2Timestamp-bd2Timestart);
+      Serial.print("ms ");
+      Serial.print((float)bd2FrameCountInitial / ((bd2Timestamp-bd2Timestart)/1000.0));
+      Serial.println(" fps");
       bd2CloseMovie();
     }
   }
@@ -748,22 +759,21 @@ static void oledInit()
 #ifdef DEBUG
 void oledDisplayTestPattern(void)
 {
-  uint32_t i,j;
-  display.goTo(0, 0);
+  uint32_t x,y;
   
-  for(i=0;i<64;i++)
+  for(y=0;y<64;y++)
   {
-    for(j=0;j<96;j++)
-    {
-      if(i>55){display.writeData(WHITE>>8);display.writeData(WHITE);}
-      else if(i>47){display.writeData(BLUE>>8);display.writeData(BLUE);}
-      else if(i>39){display.writeData(GREEN>>8);display.writeData(GREEN);}
-      else if(i>31){display.writeData(CYAN>>8);display.writeData(CYAN);}
-      else if(i>23){display.writeData(RED>>8);display.writeData(RED);}
-      else if(i>15){display.writeData(MAGENTA>>8);display.writeData(MAGENTA);}
-      else if(i>7){display.writeData(YELLOW>>8);display.writeData(YELLOW);}
-      else {display.writeData(BLACK>>8);display.writeData(BLACK);}
-    }
+    display.setAddrWindow(0, y, 96, 1);
+    uint16_t color = BLACK;
+    if(y>55) color = WHITE;
+    else if(y>47) color = BLUE;
+    else if(y>39) color = GREEN;
+    else if(y>31) color = CYAN;
+    else if(y>23) color = RED;
+    else if(y>15) color = MAGENTA;
+    else if(y>7) color = YELLOW;
+    display.writeColor(color, 96);
+    display.endWrite();
   }
 }
 #endif
@@ -1015,7 +1025,7 @@ void debugStartupMovie()
   switch (random(3))
   {
     case 0:
-      inputString = "S1|34";
+      inputString = "S1|40";
       break;
     case 1:
       inputString = "S2";
