@@ -39,7 +39,7 @@ char compareFrames(uint16_t* curr, uint16_t* prev, int* x, int* y, int* width, i
     // Find first mismatched y row
     for (int yy = 0; yy < DISPLAY_HEIGHT; yy++)
     {
-        if (memcmp(&curr[DISPLAY_WIDTH*yy], &prev[DISPLAY_WIDTH*yy], DISPLAY_WIDTH) != 0)
+        if (memcmp(&curr[DISPLAY_WIDTH*yy], &prev[DISPLAY_WIDTH*yy], DISPLAY_WIDTH*2) != 0)
         {
             *y = yy;
             *height -= yy;
@@ -49,7 +49,7 @@ char compareFrames(uint16_t* curr, uint16_t* prev, int* x, int* y, int* width, i
     // Find last mismatched y row
     for (int yy = DISPLAY_HEIGHT-1; yy >= *y; yy--)
     {
-        if (memcmp(&curr[DISPLAY_WIDTH*yy], &prev[DISPLAY_WIDTH*yy], DISPLAY_WIDTH) != 0)
+        if (memcmp(&curr[DISPLAY_WIDTH*yy], &prev[DISPLAY_WIDTH*yy], DISPLAY_WIDTH*2) != 0)
         {
             *height -= DISPLAY_HEIGHT - yy;
             break;
@@ -191,13 +191,16 @@ int convertBmp(FILE* inFD, FILE* outFD, uint16_t* previousBuffer, uint32_t frame
 int main(int argc, const char* argv[])
 {
     int failed = 0;
-    int frameCount = 0;
+    int32_t frameCount = 0;
     char fnameBuffer[1000];
     FILE* bmpFile;
     FILE* bd2File = NULL;
+    /* Frame rate defaults to 10 which is about all the Arduino can reliably handle */
+    const char* sourceFileDir = argv[1];
+    int32_t fps = (argc == 3) ? atoi(argv[2]) : 10;
     if (argc != 2)
     {
-        fprintf(stderr, "Usage:\n%s <directoryname>\n");
+        fprintf(stderr, "Usage:\n%s <directoryname> [fps]\n", argv[0]);
         return 1;
     }
     do
@@ -209,9 +212,11 @@ int main(int argc, const char* argv[])
             printf("Reading %s\n", fnameBuffer);
             if (bd2File == NULL)
             {
+                // write initial frameCount to reserve space in output file
                 sprintf(fnameBuffer, "%s.bd2", argv[1]);
                 bd2File = fopen(fnameBuffer, "wb+");
                 fwrite(&frameCount, sizeof(frameCount), 1, bd2File);
+                fwrite(&fps, sizeof(fps), 1, bd2File);
             }
             static uint16_t sPreviousFrame[DISPLAY_WIDTH*DISPLAY_HEIGHT];
             if (convertBmp(bmpFile, bd2File, sPreviousFrame, frameCount) != 0)
@@ -225,6 +230,7 @@ int main(int argc, const char* argv[])
     while (!failed && bmpFile != NULL);
     if (bd2File != NULL)
     {
+        // update final framecount
         fseek(bd2File, 0, SEEK_SET);
         fwrite(&frameCount, sizeof(frameCount), 1, bd2File);
         fclose(bmpFile);

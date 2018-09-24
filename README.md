@@ -1,4 +1,4 @@
-This is a modified version of the Flthy Holoprojectors v1.7 sketch by Ryan Sondgeroth (aka FlthyMcNsty). The original code can be found here:
+This is a modified version of the Flthy Holoprojectors v1.8 sketch by Ryan Sondgeroth (aka FlthyMcNsty). The original code can be found here:
 
 http://www.2geekswebdesign.com/FlthyHPs/Sketches
 
@@ -20,6 +20,10 @@ R2
 ==============
 [Original File](https://www.youtube.com/watch?v=IElwnT84PO8)
 
+Instructions
+============
+You can find assembly instructions over on Astromech:
+https://astromech.net/forums/showthread.php?35515-How-to-Holo-projector-with-OLED-display
 
 Parts List
 ==========

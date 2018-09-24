@@ -1,154 +1,185 @@
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-///                                                                                                  ///
-///                            Flthy Holoprojectors v1.7 (OLED VERSION)                              ///
-///                                       by Ryan Sondgeroth                                         ///
-///                                         aka FlthyMcNsty                                          ///
-///                                            06-12-2018                                            ///
-///                                                                                                  ///
-///      Combines the movement and display functions of each Holoprojector into a single easy        ///
-///     to control sketch.  It utilizes 7 LED NeoPixel boards inside each HP to produce a more       ///
-///        life-like representation of a hologram projection. Servo control is handled by a          ///
-///      Adafruit 16 Channel I2C Breakout board, giving increased flexibility over the I2C bus,      ///
-///     as well as the ability to operate the HP Servos with Neopixel LEDs from the same sketch.     ///
-///       The regular arduino servo library doesn't get along with Adafruits Neopixel library,       ///
-///                  Big Happy Dude's Slow Servo Library is much better any way, :-D                 ///
-///                                                                                                  ///
-///                        Rhyno45 is a Wanker, in case Ya'll didn't know!                           ///
-///                                                                                                  ///
-///   Version History:                                                                               ///
-///     v1.1 - Added One Time HP Twitch Function                                                     ///
-///                                                                                                  ///
-///     v1.2 - Fixed Center Positioning Bug and others; streamlined Servo & LED functions;           ///
-///            optimized variable use & streamlined variable containers; increased servo position    ///
-///            presets to 8 directions; added status light on Serial/I2C receive; added a            ///
-///            random color option; added support for the RGBW version of the Adafruit Jewels;       ///
-///            added a new HP wag function; improved the flicker behavior and color to white         ///
-///            balance on the default LED function; added speed option to Dim Pulse function;        ///
-///            corrected unwanted behavior when attemping to clear LEDs while auto sequence is       ///
-///            active; added test mode; added ability to assign independent default & short circuit  ///
-///            colors for each HP;                                                                   ///
-///                                                                                                  ///
-///     v1.3 - Added ability to send sequence run time values via command string, cleaned up some    ///
-///            duplicate/unnecessary code, added 3 additional options for the HP designator values   ///
-///            in command code (X,Y,Z see below), assign specific command strings to auto LED        ///
-///            twitch                                                                                ///
-///                                                                                                  ///
-///     v1.4 - Updated volatile variable handling to better deal with sequence runtime/halt          ///
-///            functionality as well as processing Serial and I2C commands.                          ///
-///                                                                                                  ///
-///     v1.5 - Updated mapPulselength function to be more accurate.                                  ///
-///                                                                                                  ///
-///     v1.6 - 1. Added the ability to use random LED sequences in addition to the assigned default. ///
-///               sequence for each light when random LED twitch is enabled. User may select         ///
-///               between these two behaviors in the settings as well as switch between them on      ///
-///               the fly using I2C/Serial commands.                                                 ///
-///            2. Added more extensive DEBUG feed back in Serial Monitor.                            ///
-///            3. Utilized compiler directives to optimize sketch for size.                          ///
-///            4. Utilized PROGMEM to reduce SRAM usage of global setting variables resulting in a   ///
-///               more stable loop.                                                                  ///
-///            5. Made some additional efficiency tweaks.                                            ///
-///            6. Fixed a bug in how timed Leia Sequence (S1) functions fixing runtime being         ///
-///               interupted.                                                                        ///
-///      v1.7 - Bug fix identified by skelmir.  Thanks, for the input, my friend.                    ///
-///                                                                                                  ///
-///    Modified to add support for an OLED display to play movie during the Leia sequence            ///
-///                                                                                                  ///
-///                                 Original unmodified code here:                                   ///
-///                         http://www.2geekswebdesign.com/FlthyHPs/Sketches                         ///
-///                                                                                                  ///
-///                                      Special thanks to...                                        ///
-///   LostRebel and Knightshade for significant input on both the general functions of the system    ///
-///          and this code!  It helped me make vast improvements in operation and effeciency.        ///
-///                                                                                                  ///
-///                                                                                                  ///
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-///                                                                                                  ///
-///     Commands and Structure                                                                       ///
-///                                                                                                  ///
-///     DT##C or DT##CS or DT##R or DT##P                                                            ///
-///                                                                                                  ///
-///     D - the HP designator                                                                        ///
-///          F - Front HP                                                                            ///
-///          R - Rear HP                                                                             ///
-///          T - Top HP                                                                              ///
-///          A - All 3 HPs                                                                           ///
-///          X - Front & Rear HPs                                                                    ///
-///          Y - Front & Top HPs                                                                     ///
-///          Z - Rear & Top HPs                                                                      ///
-///          S - Sequences (See Below)                                                               ///
-///          S - Sequences (See Below)                                                               ///
-///                                                                                                  ///
-///     T - the Sequence Type is either 0-Led Fuctions and 1-Servo Functions                         ///
-///                                                                                                  ///
-///    ## - the Sequence Value including leading zero if necessary, ie sequence 3 is 03              ///
-///                                                                                                  ///
-///     C - (Optional), the Color integer value from list below:                                     ///
-///        Basic Color Integer Values                                                                ///
-///           1 = Red                                                                                ///
-///           2 = Yellow                                                                             ///
-///           3 = Green                                                                              ///
-///           4 = Cyan (Aqua)                                                                        ///
-///           5 = Blue                                                                               ///
-///           6 = Magenta                                                                            ///
-///           7 = Orange                                                                             ///
-///           8 = Purple                                                                             ///
-///           9 = White                                                                              ///
-///           0 = Random                                                                             ///
-///                                                                                                  ///
-///     S - (Optional), Speed setting integer for the Dim Pulse LED function below (0-9)             ///
-///                                                                                                  ///
-///     R - (Optional), Random State for clearing LED displays                                       ///
-///        Random State Integer Values                                                               ///
-///           1 = Use Default Sequences                                                              ///
-///           2 = Use Random Sequences                                                               ///
-///                                                                                                  ///
-///     P - (Optional), the Position integer value from list below:                                  ///
-///        Preset Position Integer Values                                                            ///
-///           0 = Down                                                                               ///
-///           1 = Center                                                                             ///
-///           2 = Up                                                                                 ///
-///           3 = Left                                                                               ///
-///           4 = Upper Left                                                                         ///
-///           5 = Lower Left                                                                         ///
-///           6 = Right                                                                              ///
-///           7 = Upper Right                                                                        ///
-///           8 = Lower Right                                                                        ///
-///                                                                                                  ///
-///     D001    - Leia Sequence, Random shades of blue to mimic Leia Hologram                        ///
-///     D002C   - Color Projector Sequence, Like Leia above but using color command value            ///
-///     D003CS  - Dim Pulse Sequence, Color slowly pulses on and off                                 ///
-///     D004C   - Cycle Sequence, using color command value                                          ///
-///     D005C   - Toggles Color, Simply sets LEDs tp solid color value.                              ///
-///     D006    - Rainbow Sequence                                                                   ///
-///     D007C   - Short Circuit, Led flashes on and off with interval slowing over time              ///
-///     D098    - Clears LED, Disables Auto LED Sequence                                             ///
-///     D0991   - Clears LED, Enables Auto LED Sequence,Enables Default Sequences                    ///
-///     D0992   - Clears LED, Enables Auto LED Sequence,Enables Random Sequences                     ///
-///                                                                                                  ///
-///     D101P   - Sends HP to a Preset Position*                                                     ///
-///     D102    - Enables RC Control on HP (Left/Right)*                                             ///
-///     D103    - Enables RC Control on HP (Up/Down)*                                                ///
-///     D104    - Sends HP to a Random Position                                                      ///
-///     D105    - Wags HP Left/Right 5 times*                                                        ///
-///     D106    - Wags HP Up/Down 5 times*                                                           ///
-///     D198    - Disables Auto HP Twitch                                                            ///
-///     D199    - Enables Auto HP Twitch                                                             ///
-///                                                                                                  ///
-///       S1    - Leia Mode (Front HP in Down Position, Leia LED Sequence, all other HPs disabled)*  ///
-///       S7    - Clear all LEDs, Disable Auto HP Twitch, Disable Auto LED Sequence                  ///
-///       S8    - Clear all LEDs, Enable Auto HP Twitch, Enable Auto LED Sequence (w/ default seqs.) ///
-///       S9    - Clear all LEDs, Enable Auto HP Twitch, Enable Auto LED Sequence (w/ random seqs.)  ///
-///                                                                                                  ///
-///   * Function disabled or severely limited when Basic HP Positioning in enabled.                  ///
-///     I recomend using Preset Position Coordinates                                                 ///
-///                                                                                                  ///
-///    Runtime values can be added to any command string by appending a pipe (|) followed by a       ///
-///     numeric value indicating the desired time in seconds you wish the sequence to run.           ///
-///                                                                                                  ///
-///       ie.  A007|25 would run the Rainbow Sequence on all 3 HPs for 25 seconds then clear each    ///
-///            one, returning to the system's last known auto twitch mode.                           ///
-///                                                                                                  ///
-////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///                                                                                                           ///
+///                               Flthy Holoprojectors v1.81 [OLED VERSION]                                   ///
+///                                       by Ryan Sondgeroth                                                  ///
+///                                         aka FlthyMcNsty                                                   ///
+///                                           08-22-2018                                                      ///
+///                                                                                                           ///
+///                                                                                                           ///
+///      Combines the movement and display functions of each Holoprojector into a single easy                 ///
+///     to control sketch.  It utilizes 7 LED NeoPixel boards inside each HP to produce a more                ///
+///        life-like representation of a hologram projection. Servo control is handled by a                   ///
+///      Adafruit 16 Channel I2C Breakout board, giving increased flexibility over the I2C bus,               ///
+///     as well as the ability to operate the HP Servos with Neopixel LEDs from the same sketch.              ///
+///       The regular arduino servo library doesn't get along with Adafruits Neopixel library,                ///
+///                  Big Happy Dude's Slow Servo Library is much better any way, :-D                          ///
+///                                                                                                           ///
+///                        Rhyno45 is a Wanker, in case Ya'll didn't know!                                    ///
+///                                                                                                           ///
+///   Version History:                                                                                        ///
+///     v1.1 - Added One Time HP Twitch Function                                                              ///
+///                                                                                                           ///
+///     v1.2 - Fixed Center Positioning Bug and others; streamlined Servo & LED functions;                    ///
+///            optimized variable use & streamlined variable containers; increased servo position             ///
+///            presets to 8 directions; added status light on Serial/I2C receive; added a                     ///
+///            random color option; added support for the RGBW version of the Adafruit Jewels;                ///
+///            added a new HP wag function; improved the flicker behavior and color to white                  ///
+///            balance on the default LED function; added speed option to Dim Pulse function;                 ///
+///            corrected unwanted behavior when attemping to clear LEDs while auto sequence is                ///
+///            active; added test mode; added ability to assign independent default & short circuit           ///
+///            colors for each HP;                                                                            ///
+///                                                                                                           ///
+///     v1.3 - Added ability to send sequence run time values via command string, cleaned up some             ///
+///            duplicate/unnecessary code, added 3 additional options for the HP designator values            ///
+///            in command code (X,Y,Z see below), assign specific command strings to auto LED                 ///
+///            twitch                                                                                         ///
+///                                                                                                           ///
+///     v1.4 - Updated volatile variable handling to better deal with sequence runtime/halt                   ///
+///            functionality as well as processing Serial and I2C commands.                                   ///
+///                                                                                                           ///
+///     v1.5 - Updated mapPulselength function to be more accurate.                                           ///
+///                                                                                                           ///
+///     v1.6 - 1. Added the ability to use random LED sequences in addition to the assigned default.          ///
+///               sequence for each light when random LED twitch is enabled. User may select                  ///
+///               between these two behaviors in the settings as well as switch between them on               ///
+///               the fly using I2C/Serial commands.                                                          ///
+///            2. Added more extensive DEBUG feed back in Serial Monitor.                                     ///
+///            3. Utilized compiler directives to optimize sketch for size.                                   ///
+///            4. Utilized PROGMEM to reduce SRAM usage of global setting variables resulting in a            ///
+///               more stable loop.                                                                           ///
+///            5. Made some additional efficiency tweaks.                                                     ///
+///            6. Fixed a bug in how timed Leia Sequence (S1) functions fixing runtime being                  ///
+///               interupted.                                                                                 ///
+///                                                                                                           ///
+///      v1.7 - Bug fix identified by skelmir.  Thanks, for the input, my friend.                             ///
+///                                                                                                           ///
+///      v1.8 - Added the ability to set custom "Off Colors" per IOIIOOO's (Jason Cross) request              ///
+///                                                                                                           ///
+///    Modified by skelmir to add support for an OLED display to play movie during the Leia sequence          ///
+///                                                                                                           ///
+///                                 Original unmodified code here:                                            ///
+///                         http://www.2geekswebdesign.com/FlthyHPs/Sketches                                  ///
+///                                                                                                           ///
+///                                      Special thanks to...                                                 ///
+///   LostRebel and Knightshade for significant input on both the general functions of the system             ///
+///          and this code!  It helped me make vast improvements in operation and effeciency.                 ///
+///                                                                                                           ///
+///                                                                                                           ///
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///                                                                                                           ///
+///     Commands and Structure                                                                                ///
+///                                                                                                           ///
+///     DT##C or DT##CS or DT##R or DT##P                                                                     ///
+///                                                                                                           ///
+///     D - the HP designator                                                                                 ///
+///          F - Front HP                                                                                     ///
+///          R - Rear HP                                                                                      ///
+///          T - Top HP                                                                                       ///
+///          A - All 3 HPs                                                                                    ///
+///          X - Front & Rear HPs                                                                             ///
+///          Y - Front & Top HPs                                                                              ///
+///          Z - Rear & Top HPs                                                                               ///
+///          S - Sequences (See Below)                                                                        ///
+///                                                                                                           ///
+///     T - the Sequence Type is either 0-Led Fuctions and 1-Servo Functions                                  ///
+///                                                                                                           ///
+///    ## - the Sequence Value including leading zero if necessary, ie sequence 3 is 03                       ///
+///                                                                                                           ///
+///     C - (Optional), the Color integer value from list below:                                              ///
+///        Basic Color Integer Values                                                                         ///
+///           1 = Red                                                                                         ///
+///           2 = Yellow                                                                                      ///
+///           3 = Green                                                                                       ///
+///           4 = Cyan (Aqua)                                                                                 ///
+///           5 = Blue                                                                                        ///
+///           6 = Magenta                                                                                     ///
+///           7 = Orange                                                                                      ///
+///           8 = Purple                                                                                      ///
+///           9 = White                                                                                       ///
+///           0 = Random                                                                                      ///
+///                                                                                                           ///
+///     S - (Optional), Speed setting integer for the Dim Pulse LED function below (0-9)                      ///
+///                                                                                                           ///
+///     R - (Optional), Random State for clearing LED displays                                                ///
+///        Random State Integer Values                                                                        ///
+///           1 = Use Default Sequences                                                                       ///
+///           2 = Use Random Sequences                                                                        ///
+///                                                                                                           ///
+///     P - (Optional), the Position integer value from list below:                                           ///
+///        Preset Position Integer Values                                                                     ///
+///           0 = Down                                                                                        ///
+///           1 = Center                                                                                      ///
+///           2 = Up                                                                                          ///
+///           3 = Left                                                                                        ///
+///           4 = Upper Left                                                                                  ///
+///           5 = Lower Left                                                                                  ///
+///           6 = Right                                                                                       ///
+///           7 = Upper Right                                                                                 ///
+///           8 = Lower Right                                                                                 ///
+///                                                                                                           ///
+///     D001    - Leia Sequence, Random shades of blue to mimic Leia Hologram                                 ///
+///     D002C   - Color Projector Sequence, Like Leia above but using color command value                     ///
+///     D003CS  - Dim Pulse Sequence, Color slowly pulses on and off                                          ///
+///     D004C   - Cycle Sequence, using color command value                                                   ///
+///     D005C   - Toggles Color, Simply sets LEDs tp solid color value.                                       ///
+///     D006    - Rainbow Sequence                                                                            ///
+///     D007C   - Short Circuit, Led flashes on and off with interval slowing over time                       ///
+///     D096    - Clears LED, Disables Auto LED Sequence & "Off Color"                                        ///
+///     D0971   - Clears LED, Enables Auto LED Sequence,Enables Default Sequences, Disables "Off Color"       ///
+///     D0972   - Clears LED, Enables Auto LED Sequence,Enables Random Sequences, Disables "Off Color" .      ///
+///     D098    - Clears LED, Disables Auto LED Sequence, enables "Off Color"                                 ///
+///     D0991   - Clears LED, Enables Auto LED Sequence,Enables Default Sequences, Enables "Off Color"        ///
+///     D0992   - Clears LED, Enables Auto LED Sequence,Enables Random Sequences, Enables "Off Color"         ///
+///                                                                                                           ///
+///     D101P   - Sends HP to a Preset Position*                                                              ///
+///     D102    - Enables RC Control on HP (Left/Right)*                                                      ///
+///     D103    - Enables RC Control on HP (Up/Down)*                                                         ///
+///     D104    - Sends HP to a Random Position                                                               ///
+///     D105    - Wags HP Left/Right 5 times*                                                                 ///
+///     D106    - Wags HP Up/Down 5 times*                                                                    ///
+///     D198    - Disables Auto HP Twitch                                                                     ///
+///     D199    - Enables Auto HP Twitch                                                                      ///
+///                                                                                                           ///
+///       S1    - Leia Mode (Front HP in Down Position, Leia LED Sequence, all other HPs disabled)*           ///
+///       S2    - Play R2 Cartoon [OLED]                                                                      ///
+///       S3    - Play Deathstar Plans movie [OLED]                                                           ///
+///       S4    - Clear all LEDs, Disable Auto HP Twitch, Disable Auto LED Sequence, Disables Off Color       ///
+///       S5    - Clear all LEDs, Enable Auto HP Twitch, Enable Auto LED Sequence (w/ default seqs.),         ///
+///               Disables Off Color                                                                          ///
+///       S9    - Clear all LEDs, Enable Auto HP Twitch, Enable Auto LED Sequence (w/ random seqs.),          ///
+///               Disables Off Color                                                                          ///
+///       S7    - Clear all LEDs, Disable Auto HP Twitch, Disable Auto LED Sequence, Enables Off Color        ///
+///       S8    - Clear all LEDs, Enable Auto HP Twitch, Enable Auto LED Sequence (w/ default seqs.),         ///
+///               Enables Off Color                                                                           ///
+///       S9    - Clear all LEDs, Enable Auto HP Twitch, Enable Auto LED Sequence (w/ random seqs.),          ///
+///               Enables Off Color                                                                           ///
+///                                                                                                           ///
+///   * Function disabled or severely limited when Basic HP Positioning in enabled.                           ///
+///     I recomend using Preset Position Coordinates                                                          ///
+///                                                                                                           ///
+///    Runtime values can be added to any command string by appending a pipe (|) followed by a                ///
+///     numeric value indicating the desired time in seconds you wish the sequence to run.                    ///
+///                                                                                                           ///
+///       ie.  A007|25 would run the Rainbow Sequence on all 3 HPs for 25 seconds then clear each             ///
+///            one, returning to the system's last known auto twitch mode.                                    ///
+///                                                                                                           ///
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///    OLED SPECIFIC                                                                                          ///
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///                                                                                                           ///
+///    These commands have been added because extracting the SD card can be difficult once the Holo has       ///
+///    been installed. The [filename] is 7-characters maximum and should have no extension. The extensions    ///
+///    BD2 will be added automatically. The filename is not case-sensitive since the SD card is a Fat32       ///
+///    file system.                                                                                           ///
+///                                                                                                           ///
+///    "OD[filename]": Download movie via serial to SD card                                                   ///
+///    "OP[filename]": Play movie with the specified name                                                     ///
+///    "OX[filename]": Delete movie of the specifid name if it exists                                         ///
+///                                                                                                           ///
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///                                                                                                  ///
@@ -160,7 +191,8 @@
 #include <Adafruit_PWMServoDriver.h>     // Source: https://github.com/adafruit/Adafruit-PWM-Servo-Driver-Library
 #include <Servos.h>                      // Source: https://drive.google.com/file/d/0B5B8A65frsBgZ3VpeGxpM1lzaFE/edit  Thanks BHD!
 
-#define VERSION 7
+
+#define VERSION 8
 #define HPCOUNT 3
 #define HPPOSITIONS 9
 
@@ -220,6 +252,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 #define SERVOI2CADDRESS 0x40  // 64 in Hexadecmal
 
+
 //////////////////////////////////////////////////////////////////////////////////
 ///*****               Arduino Digital Pin Assignments for LEDs           *****///
 ///*****                                                                  *****///
@@ -237,6 +270,7 @@ const byte LEDpins[HPCOUNT]   = {HP_FRONT_LED_PIN,HP_REAR_LED_PIN,HP_TOP_LED_PIN
 const byte HPpins[HPCOUNT][2] = {{0,1},           // Front HP Pins
                                  {2,3},           // Rear HP Pins
                                  {4,5}};          // Top HP Pins
+
 
 //////////////////////////////////////////////////////////////////////////////////
 ///*****       Arduino Digital Pin Assignment for Output Enable (OE)      *****///
@@ -267,7 +301,7 @@ const byte HPpins[HPCOUNT][2] = {{0,1},           // Front HP Pins
 ///*****               out frees up some system resources.                *****///
 ///*****                                                                  *****///
 //////////////////////////////////////////////////////////////////////////////////
-#undef ENABLERC
+#define ENABLERC true
 
 #ifdef ENABLERC    //Do Not Edit This Line!
 //////////////////////////////////////////////////////////////////////////////////
@@ -314,7 +348,7 @@ byte enableTwitchLED[HPCOUNT]  = {1,1,1};              // Leds:   Front, Rear, T
 
 
 //////////////////////////////////////////////////////////////////////////////////
-///*****                 Default LED Auto Twitch Command String           *****///
+///*****                    Default LED Auto Twitch Commands              *****///
 ///*****                                                                  *****///
 ///*****  List the command you wish to perform during the random twitch   *****/// 
 ///*****                              for each HP.                        *****///
@@ -389,7 +423,7 @@ const unsigned int SERVO_SPEED[2] = {150, 400};
 ///*****   Uncomment the following if you wish to use this basic mode.    *****///
 ///*****                                                                  *****///
 //////////////////////////////////////////////////////////////////////////////////
-#undef ENABLEBASICHP
+#define ENABLEBASICHP true
 
 
 #ifdef ENABLEBASICHP  //Do Not Edit This Line!
@@ -487,7 +521,7 @@ const unsigned int SERVO_SPEED[2] = {150, 400};
 
 ///////////////////////////////////////////////////////////////////////////////////
 ///*****                      Default Color Settings                       *****///
-///*****      `                                                             *****///
+///*****      `                                                            *****///
 ///*****     Select Default Colors for certain LED sequences using the     *****///
 ///*****                       integer values below:                       *****///
 ///*****                                                                   *****///
@@ -508,6 +542,20 @@ const uint8_t defaultColor[HPCOUNT] = {5,5,5};      // {Front, Rear , Top} 5 = B
                                                     // This is to appease MKelly and MKarp's whiney little asses, lol
 const uint8_t shortColor[HPCOUNT] = {7,7,7};        // {Front, Rear , Top} 7 = Orange, Color integer value for the hue of ShortCircuit Message. 
 
+
+
+///////////////////////////////////////////////////////////////////////////////////
+///*****                    Optional Default "Off" Color                   *****///
+///////////////////////////////////////////////////////////////////////////////////
+///*****      `                                                            *****///
+///*****     The default state of the LEDs is unlit, ie Black.  If you     *****///
+///*****     would rather have the off state be a static color, set the    *****///
+///*****     color integer from the list above for the corresponding HP    *****///
+///*****     below.  Use the value -1 for off.  You will see this color .  *****///
+///*****     after initial twitch.                                         *****///
+///*****                                                                   *****///
+///////////////////////////////////////////////////////////////////////////////////
+const int offcolor[HPCOUNT] = {-1,-1,-1};      // {Front, Rear , Top}   Off (Default) = -1
 
 //////////////////////////////////////////////////////////////////////////////////
 ///*****               Dim Pulse Speed Range and Default Speed            *****///
@@ -595,6 +643,7 @@ const uint8_t dimPulseSpeedRange[2] = {5, 75};      // Range used to map to valu
 Adafruit_SSD1331 display = Adafruit_SSD1331(cs, dc, rst);  
 
 File bd2File;
+boolean bd2Download;
 uint32_t bd2FrameCount;
 uint32_t bd2Timestamp;
 uint32_t bd2Timestart;
@@ -685,8 +734,10 @@ uint32_t read32(File f) {
 static void bd2PlayMovie(const char* filename)
 {
   bd2CloseMovie();
+#ifdef DEBUG
   Serial.print(F("bd2PlayMovie: "));
   Serial.println(filename);
+#endif
   if ((bd2File = SD.open(filename)) == NULL) {
   #ifdef DEBUG
     Serial.print(F("File not found: "));
@@ -695,10 +746,8 @@ static void bd2PlayMovie(const char* filename)
     return;
   }
 
-#ifdef DEBUG
   Serial.print(F("Playing movie: "));
   Serial.println(filename);
-#endif
   // Set front holo to half-bright during movie play
   dimFrontHoloBrigthness();
   bd2FrameCount = read32(bd2File);
@@ -730,6 +779,90 @@ static void bd2Idle()
     }
   }
 }
+
+// This code is optional if size is a problem. It's convenience only.
+#define OLED_DOWNLOAD
+#ifdef OLED_DOWNLOAD
+static const unsigned char pr2six[256] =
+{
+    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 62, 64, 64, 64, 63,
+    52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 64, 64, 64, 64, 64, 64,
+    64,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
+    15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 64, 64, 64, 64, 64,
+    64, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+    41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 64, 64, 64, 64, 64,
+    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+};
+
+static int bd2DownloadFile(File file, unsigned char* buffer, uint32_t bufferSize, uint32_t fileLength)
+{
+  uint32_t receivedFileSize = 0;
+  while (receivedFileSize < fileLength)
+  {
+    boolean ack = false;
+    uint32_t sum = 0;
+    if (!Serial.find("ACK"))
+    {
+      Serial.print("NAK received=");
+      Serial.println(receivedFileSize);
+      return -1;
+    }
+    sum = Serial.readStringUntil('\n').toInt();
+    unsigned char outch = 0;
+    unsigned char* bufin = buffer;
+    unsigned char* bufout = buffer;
+    int nprbytes = Serial.readBytesUntil('\n', buffer, bufferSize);
+    uint32_t sum2 = 0;
+    for (int i = 0; i < nprbytes; i++)
+    {
+       sum2 += buffer[i];
+    }
+    if (sum == sum2)
+    {
+      receivedFileSize += nprbytes;
+      showDownloadProgress(receivedFileSize, fileLength);
+      while (nprbytes > 4) {
+        *bufout++ = (unsigned char)((unsigned int) (pr2six[*bufin] << 2) | (unsigned int)pr2six[bufin[1]] >> 4);
+        *bufout++ = (unsigned char)((unsigned int) (pr2six[bufin[1]] << 4) | (unsigned int)pr2six[bufin[2]] >> 2);
+        *bufout++ = (unsigned char)((unsigned int) (pr2six[bufin[2]] << 6) | (unsigned int)pr2six[bufin[3]]);
+        bufin += 4;
+        nprbytes -= 4;
+      }
+      if (nprbytes > 1) {
+        *bufout++ = (unsigned char) (pr2six[*bufin] << 2 | pr2six[bufin[1]] >> 4);
+      }
+      if (nprbytes > 2) {
+        *bufout++ = (unsigned char) (pr2six[bufin[1]] << 4 | pr2six[bufin[2]] >> 2);
+      }
+      if (nprbytes > 3) {
+        *bufout++ = (unsigned char) (pr2six[bufin[2]] << 6 | pr2six[bufin[3]]);
+      }
+      file.write(buffer, bufout - buffer);
+      Serial.println("ACK");
+    }
+    else
+    {
+      Serial.print("NAK:");
+      Serial.print("badchecksum: ");
+      Serial.print(sum2);
+      Serial.print("expected: ");
+      Serial.println(sum);
+    }
+  }
+  showDownloadProgress(0, 0);
+  file.flush();
+  return (receivedFileSize > 0) ? receivedFileSize : -1;
+}
+#endif
 
 static void oledInit()
 {
@@ -855,6 +988,8 @@ typedef struct HPCmdStruct
 
 HPCmd HP_command[HPCOUNT];
 
+boolean offcoloroverride[HPCOUNT] = {false,false,false};
+
 
 //////////////////////////////////////////////////////////////////////
 ///*****                  Color Values & Labels               *****///
@@ -886,6 +1021,7 @@ const uint32_t basicColors[10][10] = {{     C_RED,  C_YELLOW,   C_GREEN,   C_CYA
                                       {  C_ORANGE,  C_ORANGE,  C_ORANGE,  C_WHITE, 0xFB9B3A,  0xFFBE7D, 0xFCD2A7,   C_OFF, C_OFF, C_OFF},    // Orange
                                       {  C_PURPLE,  C_PURPLE,  C_PURPLE,  C_WHITE, 0xA131A1,  0x9B449B, 0xBD5FBD,   C_OFF, C_OFF, C_OFF},    // Purple
                                       {   C_WHITE,   C_WHITE,   C_WHITE,  C_WHITE, 0xB7B6B6,  0x858484, 0xA09F9F,   C_OFF, C_OFF, C_OFF}};   // White
+
 
 
 //////////////////////////////////////////////////////////////////////
@@ -925,13 +1061,17 @@ Servos servos(SERVOI2CADDRESS);
 ////////////////////////////////////////////////////////////
 
 void setup() { 
+#ifdef OLED
+  Serial.begin(19200);                     // Starts Serial with a baudrate of 19200
+#else
   Serial.begin(9600);                      // Starts Serial with a baudrate of 9600
+#endif
   inputString.reserve(10);                 // reserve 10 bytes for the inputString
 
   Wire.begin(I2CADDRESS);                  // Connects to I2C Bus and establishes address.
   Wire.onReceive(i2cEvent);                // Register event so when we receive something we jump to i2cEvent();
 
-  randomSeed(analogRead(3));               // Seeds psuedo-random number generator with current value on unconnected anolog pin to make random more randomy.
+  randomSeed(analogRead(3));               // Seeds psuedo-random number generator to make random more randomy.
 
 #ifdef OLED
   oledInit();
@@ -1004,6 +1144,9 @@ void setup() {
   Serial.println(F("Setup Complete!\n"));
   Serial.println(F("Starting Main Loop..."));
   Serial.println(F("Command Strings can now be entered in serial monitor...\n"));
+  #endif
+  #ifdef OLED
+  Serial.println(F("READY"));
   #endif
 }
 
@@ -1097,6 +1240,67 @@ void loop(){
       if(inputBuffer[0]=='T' || inputBuffer[0]=='Y' || inputBuffer[0]=='Z' || inputBuffer[0]=='A')
         processCommands(2,typeState);
     }
+    #ifdef OLED
+    else if (inputBuffer[0]=='O')                      // OLED Sequences
+    {
+      char filename[12];
+      char* fp = filename;
+      const char* ch = (commandLength >= 3) ? &inputBuffer[2] : "";
+      while (*ch != '\0')
+      {
+        unsigned char c = (unsigned char)*ch++;
+        *fp++ = (char)((c >= 'a' && c <= 'z') ? c - ('a' - 'A') : c);
+      }
+      *fp = '\0';
+      if (filename != fp)
+      {
+        *fp++ = '.'; *fp++ = 'B'; *fp++ = 'D'; *fp++ = '2'; *fp = '\0';
+      #ifdef OLED_DOWNLOAD
+        if(inputBuffer[1] == 'D')
+        {
+          uint32_t len = 0;
+          bd2Download = true;
+          Serial.println("ACK");
+          if (Serial.find("LEN"))
+          {
+            len = Serial.readStringUntil('\n').toInt();
+          }
+          uint32_t bytesReceived = 0;
+          /* Remove old file */
+          unsigned char* buffer = (unsigned char*)malloc(4098);
+          if (buffer != NULL)
+          {
+            if (SD.exists(filename))
+              SD.remove(filename);
+            File file = SD.open(filename, FILE_WRITE);
+            bytesReceived = bd2DownloadFile(file, buffer, 4098, len);
+            file.close();
+            if (bytesReceived <= 0)
+              SD.remove(filename);
+            free((char*)buffer);
+          }
+          bd2Download = false;
+          if (bytesReceived > 0)
+          {
+            Serial.print("Received: ");
+            Serial.print(filename);
+            Serial.print(" ");
+            Serial.print(bytesReceived);
+            Serial.println(" bytes");
+          }
+        }
+      #endif
+        else if(inputBuffer[1] == 'X')
+        {
+          SD.remove(filename);
+        }
+        else if(inputBuffer[1] == 'P')
+        {
+          bd2PlayMovie(filename);
+        }
+      }
+    }
+    #endif
     else if (inputBuffer[0]=='S')                      // Major Sequences (Both LEDS and HP Servos)
     {
       if(commandLength >= 2)
@@ -1116,7 +1320,9 @@ void loop(){
                        LED_command[2].LEDFunction = 0;                                  // Set Top HP LED to Do Nothing
                        HP_command[2].HPFunction = 0;                                    // Set Top HP to Do Nothing
                        LED_command[0].LEDFunction = 1;                                  // Set Leia LED Sequence to run each loop.
+                       #ifdef OLED
                        bd2PlayMovie("Leia.bd2");
+                       #endif
                        if(halt >= 1) {
                                   for (int i=0; i<HPCOUNT; i++) {     
                                       LED_command[i].LEDHalt = halt;                    // Set LED Halt timeout if passed via command.
@@ -1126,12 +1332,42 @@ void loop(){
                                    }
                               }                     
                        break;
+               #ifdef OLED
                case 2: bd2PlayMovie("R2.bd2");
                        break;
                case 3: bd2PlayMovie("Plans.bd2");
+               #endif
+
+               case 4: for (int i=0; i<HPCOUNT; i++) {
+                                enableTwitchHP[i]=false;                                 // Disables Auto HP Twith on all HPs
+                                offcoloroverride[i] = true;                              // Overrides any set "Off Color" so LEDs are truely Off
+                                flushCommandArray(i, 0);                                 // Flushes LED Command Array for all HPs
+                                flushCommandArray(i, 1);                                 // Flushes HP Command Array for all HPs
+                                ledOFF(i);                                               // Turns Off LEDs on all HPs
+                                enableTwitchLED[i]=0;                                    // Disables Auto LED Twith on all HPs
+                       }
+                       break;
+               case 5: for (int i=0; i<HPCOUNT; i++) {
+                                enableTwitchHP[i]=true;                                  // Enables Auto HP Twith on all HPs
+                                offcoloroverride[i] = true;                              // Overrides any set "Off Color" so LEDs are truely Off
+                                flushCommandArray(i, 0);                                 // Flushes LED Command Array for all HPs
+                                flushCommandArray(i, 1);                                 // Flushes HP Command Array for all HPs
+                                ledOFF(i);                                               // Turns Off LEDs on all HPs
+                                enableTwitchLED[i]=1;                                    // Enables Auto LED Twith on all HPs using assigned default sequences
+                       }
+                       break;
+               case 6: for (int i=0; i<HPCOUNT; i++) {
+                                enableTwitchHP[i]=true;                                  // Enables Auto HP Twith on all HPs
+                                offcoloroverride[i] = true;                              // Overrides any set "Off Color" so LEDs are truely Off
+                                flushCommandArray(i, 0);                                 // Flushes LED Command Array for all HPs
+                                flushCommandArray(i, 1);                                 // Flushes HP Command Array for all HPs
+                                ledOFF(i);                                               // Turns Off LEDs on all HPs
+                                enableTwitchLED[i]=2;                                    // Enables Auto LED Twith on all HPs using random sequences
+                       }
                        break;
                case 7: for (int i=0; i<HPCOUNT; i++) {
                                 enableTwitchHP[i]=false;                                 // Disables Auto HP Twith on all HPs 
+                                offcoloroverride[i] = false;                             // Removes Any Override to "Off Color" if set
                                 flushCommandArray(i, 0);                                 // Flushes LED Command Array for all HPs
                                 flushCommandArray(i, 1);                                 // Flushes HP Command Array for all HPs
                                 ledOFF(i);                                               // Turns Off LEDs on all HPs
@@ -1140,6 +1376,7 @@ void loop(){
                        break;
                case 8: for (int i=0; i<HPCOUNT; i++) {
                                 enableTwitchHP[i]=true;                                  // Enables Auto HP Twith on all HPs 
+                                offcoloroverride[i] = false;                              // Removes Any Override to "Off Color" if set
                                 flushCommandArray(i, 0);                                 // Flushes LED Command Array for all HPs
                                 flushCommandArray(i, 1);                                 // Flushes HP Command Array for all HPs
                                 ledOFF(i);                                               // Turns Off LEDs on all HPs
@@ -1148,12 +1385,13 @@ void loop(){
                        break;
                 case 9: for (int i=0; i<HPCOUNT; i++) {
                                 enableTwitchHP[i]=true;                                  // Enables Auto HP Twith on all HPs 
+                                offcoloroverride[i] = false;                              // Removes Any Override to "Off Color" if set 
                                 flushCommandArray(i, 0);                                 // Flushes LED Command Array for all HPs
                                 flushCommandArray(i, 1);                                 // Flushes HP Command Array for all HPs
                                 ledOFF(i);                                               // Turns Off LEDs on all HPs
                                 enableTwitchLED[i]=2;                                    // Enables Auto LED Twith on all HPs using random sequences
                        }
-                break;
+                       break;
                 default: break;
         }
       }
@@ -1186,12 +1424,18 @@ void loop(){
       case 5: ledColor(i,LED_command[i].LEDOption1); break;
       case 6: rainbow(i); break;
       case 7: ShortCircuit(i,LED_command[i].LEDOption1); break; 
-      case 98: enableTwitchLED[i]=0; resetLEDtwitch(i); flushCommandArray(i,0); break;   // Clear Function, Disable Random LED Twitch and random sequences (if enabled)
+      case 96: enableTwitchLED[i]=0; resetLEDtwitch(i); offcoloroverride[i] = true; flushCommandArray(i,0); break;   // Clear Function, Disable Random LED Twitch, enable off color override, and random sequences (if enabled)
+      case 97: if(LED_command[i].LEDOption1 == 1 || LED_command[i].LEDOption1 ==2) { enableTwitchLED[i]=LED_command[i].LEDOption1; }
+               else { enableTwitchLED[i]=startEnableTwitchLED[i]; }
+               resetLEDtwitch(i); offcoloroverride[i] = true; flushCommandArray(i,0); break;   // Clear Function, Enable Random LED Twitch using random LED sequences, enable off color override. 
+      case 98: enableTwitchLED[i]=0; resetLEDtwitch(i); offcoloroverride[i] = false; flushCommandArray(i,0); break;   // Clear Function, Disable Random LED Twitch, random sequences (if enabled) and disable off color override,
       case 99: if(LED_command[i].LEDOption1 == 1 || LED_command[i].LEDOption1 ==2) { enableTwitchLED[i]=LED_command[i].LEDOption1; }
                else { enableTwitchLED[i]=startEnableTwitchLED[i]; }
-               resetLEDtwitch(i); flushCommandArray(i,0); break;   // Clear Function, Enable Random LED Twitch using random LED sequences
+               resetLEDtwitch(i); offcoloroverride[i] = false; flushCommandArray(i,0); break;   // Clear Function, Enable Random LED Twitch, using random LED sequences, disable off color override,
+      case 100: ledColor(i,LED_command[i].LEDOption1); break;
       default: break;
      }
+
 
     if(HP_command[i].HPHalt) {
        if(millis()-HPHaltTime[i]>=(HP_command[i].HPHalt*1000L)) {
@@ -1247,7 +1491,7 @@ void loop(){
 
 
   for (int i=0; i<HPCOUNT; i++) {
-    if (millis() > twitchHPTime[i] && enableTwitchHP[i] && HP_command[i].HPFunction >99) {
+    if (millis() > twitchHPTime[i] && enableTwitchHP[i] && HP_command[i].HPFunction>99) {
       twitchHP(i,1);
       resetHPtwitch(i);
     } 
@@ -1528,7 +1772,7 @@ void ShortCircuit(byte hp, int c) {
 
             
 /////////////////////////////////////////////////////////
-///*****           Cycle Function            *****///
+///*****             Cycle Function              *****///
 /////////////////////////////////////////////////////////
 
 void cycle(byte hp, int c) { 
@@ -1540,7 +1784,7 @@ void cycle(byte hp, int c) {
       /* 7 pixels with one center */
       neoStrips[hp].setPixelColor(0, C_OFF);     // Center LED is always off
       if (Frame[hp] >= NEO_JEWEL_LEDS(hp)) {Frame[hp]=0;}
-      for (int i = 1; i<NEO_JEWEL_LEDS(i); i++) { 
+      for (int i = 1; i<NEO_JEWEL_LEDS(hp); i++) {
         if (i == Frame[hp]) {neoStrips[hp].setPixelColor(i, basicColors[c][0]);}
         else {neoStrips[hp].setPixelColor(i, C_OFF);}                      
       }
@@ -1549,7 +1793,7 @@ void cycle(byte hp, int c) {
     {
       /* 12 pixels no center */
       if (Frame[hp] >= NEO_JEWEL_LEDS(hp)) {Frame[hp]=0;}
-      for (int i = 0; i<NEO_JEWEL_LEDS(i); i++) { 
+      for (int i = 0; i<NEO_JEWEL_LEDS(hp); i++) {
         if (i == Frame[hp]) {neoStrips[hp].setPixelColor(i, basicColors[c][0]);}
         else {neoStrips[hp].setPixelColor(i, C_OFF);}                      
       }
@@ -1667,7 +1911,7 @@ void processCommands(byte hp, byte type) {
         LED_command[hp].LEDOption1 = optionState;
     }
     else {
-      if(functionState==5)
+      if(functionState==7)
           LED_command[hp].LEDOption1 = shortColor[hp];
         else
           LED_command[hp].LEDOption1 = defaultColor[hp];
@@ -1698,11 +1942,17 @@ void processCommands(byte hp, byte type) {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////// 
 void flushCommandArray(byte hp, byte type) {
-  if(type==0) {
-   LED_command[hp].LEDFunction = -1;
-   LED_command[hp].LEDOption1 = -1;
-   LED_command[hp].LEDOption2 = -1;
-   LED_command[hp].LEDHalt = -1;
+  if (type==0) {
+    int color = -1;
+    if (offcolor[hp] >= 0 && !offcoloroverride[hp]) {
+       LED_command[hp].LEDFunction = 100; color = offcolor[hp];
+    }
+    else {
+       LED_command[hp].LEDFunction = -1;
+    }
+    LED_command[hp].LEDOption1 = color;
+    LED_command[hp].LEDOption2 = -1;
+    LED_command[hp].LEDHalt = -1;
   }
   else if(type==1) {
    HP_command[hp].HPFunction = -1;
@@ -1771,6 +2021,9 @@ void statusLEDCheck() {
 /////////////////////////////////////////////////////////
       
 void serialEvent() {
+#ifdef OLED_DOWNLOAD
+  if (bd2Download) return;
+#endif
   while (Serial.available()) {                         // Loop through all incoming bytes
     char inChar = (char)Serial.read();                 // Receive each byte as a character        
     if (inChar == '\r' || inChar == '\n') {            // if the incoming character is a carriage return (\r) or newline (\n), it denotes end of command
@@ -1805,4 +2058,26 @@ void i2cEvent(int howMany)
   statusLEDOn();
 }
 
-
+#ifdef OLED_DOWNLOAD
+void showDownloadProgress(uint32_t receivedFileSize, uint32_t fileLength)
+{
+    int hp = 0;
+    uint32_t siz = 0;
+    int val = (fileLength > 0) ? (int)(255 * NEO_JEWEL_LEDS(hp) * (double)receivedFileSize / (double)fileLength) : 0;
+    for (int i = 0; i<NEO_JEWEL_LEDS(hp); i++) {
+      if (val >= 255)
+      {
+        neoStrips[hp].setPixelColor(i, 0, 0, 255);
+        val -= 255;
+      }
+      else if (val > 0) {
+        neoStrips[hp].setPixelColor(i, 0, 0, val);
+        val = 0;
+      }
+      else {
+        neoStrips[hp].setPixelColor(i, C_OFF);
+      }
+    }
+    neoStrips[hp].show();
+}
+#endif
