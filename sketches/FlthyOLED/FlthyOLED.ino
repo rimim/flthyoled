@@ -205,6 +205,7 @@
 #define HP_FRONT_LED_PIN 45
 #define HP_REAR_LED_PIN 2
 #define HP_TOP_LED_PIN 3
+#define RADAR_EYE_LED_PIN 4
 
 #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
 /* Enable OLED support on the Mega */
@@ -301,7 +302,7 @@ const byte HPpins[HPCOUNT][2] = {{0,1},           // Front HP Pins
 ///*****               out frees up some system resources.                *****///
 ///*****                                                                  *****///
 //////////////////////////////////////////////////////////////////////////////////
-#define ENABLERC true
+//#define ENABLERC true
 
 #ifdef ENABLERC    //Do Not Edit This Line!
 //////////////////////////////////////////////////////////////////////////////////
@@ -596,7 +597,7 @@ const uint8_t dimPulseSpeedRange[2] = {5, 75};      // Range used to map to valu
 // D/C (DC) - Digital #48 (Brown Wire)
 // SCK (CK) - Digital #52 (White Wire)
 // MOSI (SI) - Digital #51 (Blue Wire)
-// MISO (SO) - Digital #50 (Yellow Wire)
+// MISO (SO) - Digital #50 (Purple Wire)
 // CD (CD) - skip
 
 #define miso 50
@@ -618,7 +619,7 @@ const uint8_t dimPulseSpeedRange[2] = {5, 75};      // Range used to map to valu
 // D/C (DC) - Digital #8 (Brown Wire)
 // SCK (CK) - Digital #13 (White Wire)
 // MOSI (SI) - Digital #11 (Blue Wire)
-// MISO (SO) - Digital #12 (Yellow Wire)
+// MISO (SO) - Digital #12 (Purple Wire)
 // CD (CD) - skip
 
 #define sclk 13
@@ -1159,7 +1160,7 @@ void restoreFrontHoloBrigthness()
 void dimFrontHoloBrigthness()
 {
   // Restore front holo brightness
-  neoStrips[0].setBrightness(BRIGHT/2);
+  neoStrips[0].setBrightness(BRIGHT/4);
 }
 
 void debugStartupMovie()
