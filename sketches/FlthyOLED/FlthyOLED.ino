@@ -1308,6 +1308,9 @@ void loop(){
       {
         functionState = (inputBuffer[1]-'0');
 
+        #ifdef OLED
+        bd2CloseMovie();
+        #endif
         switch (functionState)
         { 
                case 1: for (int i=0; i<HPCOUNT; i++) {
